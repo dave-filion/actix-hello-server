@@ -1,5 +1,7 @@
+use actix::{Actor, StreamHandler};
 use actix_web::*;
 use actix_files as fs;
+use actix_web_actors::ws;
 
 use listenfd::ListenFd;
 use std::sync::Mutex;
@@ -7,6 +9,7 @@ use futures::future::{ready, Ready};
 use serde::{Serialize, Deserialize};
 use std::io;
 use failure::Fail;
+use actix_web_actors::ws::{Message, ProtocolError};
 
 // Struct of app data shared in scope
 struct AppState {
@@ -148,6 +151,35 @@ async fn error_test() -> Result<&'static str, MyError> {
     Err(MyError{ name: "error_test"})
 }
 
+// Websockets test
+struct MyWs; // define http actor
+
+// impl actor for websock
+impl Actor for MyWs {
+    type Context = ws::WebsocketContext<Self>;
+}
+
+// Handler for streaming ws
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWs {
+    fn handle(&mut self,
+              msg: Result<Message, ProtocolError>,
+              ctx: &mut Self::Context) {
+        match msg {
+            Ok(ws::Message::Ping(m)) => ctx.pong(&m),
+            Ok(ws::Message::Text(text)) => ctx.text(text),
+            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
+            _ => (),
+        }
+    }
+}
+
+async fn test_web_socket(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+    let resp = ws::start(MyWs{}, &req, stream);
+    println!("{:?}", resp);
+    resp
+}
+
+////// END WEBSOCKET TEST
 
 // this function could be located in different module
 // its scoped under /api
@@ -211,6 +243,7 @@ async fn main() -> std::io::Result<()> {
             .route("/json", web::post().to(json_test))
             .route("/form", web::post().to(form_test))
             .route("/error", web::get().to(error_test))
+            .route("/ws/", web::get().to(test_web_socket))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
