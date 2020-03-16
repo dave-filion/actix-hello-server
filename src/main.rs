@@ -24,6 +24,25 @@ async fn inc_counter(data : web::Data<AppState>) -> String {
     // counter drops and mutex releases lock here
 }
 
+// this function could be located in different module
+// its scoped under /api
+fn scoped_config(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::resource("/test")
+            .route(web::get().to(|| HttpResponse::Ok().body("test")))
+            .route(web::head().to(|| HttpResponse::MethodNotAllowed())),
+    );
+}
+
+// this function could be located in different module
+fn config(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::resource("/app")
+            .route(web::get().to(|| HttpResponse::Ok().body("app")))
+            .route(web::head().to(|| HttpResponse::MethodNotAllowed())),
+    );
+}
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     println!("Initializing server...");
@@ -42,7 +61,9 @@ async fn main() -> std::io::Result<()> {
         // move app counter into closure
 
         App::new()
+            .configure(config)
             .app_data(app_state.clone()) // register the created data
+            .service(web::scope("/api").configure(scoped_config))
             .route("/", web::get().to(index))
             .route("/again", web::get().to(index2))
             .route("/inc", web::get().to(inc_counter))
