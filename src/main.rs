@@ -2,7 +2,7 @@ use actix_web::*;
 use listenfd::ListenFd;
 use std::sync::Mutex;
 use futures::future::{ready, Ready};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 // Struct of app data shared in scope
 struct AppState {
@@ -23,6 +23,33 @@ struct AppJsonResponse {
     success: bool,
     user_id: u32,
     name: &'static str,
+}
+
+// struct representing some event sent to app
+#[derive(Deserialize, Serialize)]
+struct Event {
+    id: Option<i32>,
+    timestamp: f64,
+    kind: String,
+    tags: Vec<String>,
+}
+
+// fake fn to represent adding data t db
+fn store_in_db(timestamp: f64, kind : &String, tags: &Vec<String>) -> Event {
+    println!("Adding to db: timestamp={:?} kind={:?} tags={:?}", timestamp, kind, tags);
+    // generate id
+    Event {
+        id: Some(123),
+        timestamp: timestamp,
+        kind: kind.clone(),
+        tags: tags.clone(),
+    }
+}
+
+// handler to capture event, sent by json message
+async fn capture_event(evt: web::Json<Event>) -> impl Responder {
+    let new_event = store_in_db(evt.timestamp, &evt.kind, &evt.tags);
+    format!("got event {}", new_event.id.unwrap())
 }
 
 // Need to implement Responder for our objct so a handler can return it
@@ -111,11 +138,12 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .configure(config)
             .app_data(app_state.clone()) // register the created data
-            .service(web::scope("/api").configure(scoped_config))
             .route("/", web::get().to(index))
+            .route("/api", web::get().to(api_response))
             .route("/again", web::get().to(index2))
             .route("/inc", web::get().to(inc_counter))
             .route("/json", web::get().to(api_response2))
+            .route("/event", web::post().to(capture_event))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
