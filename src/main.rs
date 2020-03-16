@@ -1,4 +1,6 @@
 use actix_web::*;
+use actix_files::NamedFile;
+
 use listenfd::ListenFd;
 use std::sync::Mutex;
 use futures::future::{ready, Ready};
@@ -108,8 +110,9 @@ impl Responder for AppResponseObject {
     }
 }
 
-async fn index() -> String {
-    format!("HOME")
+// Loads static file for index
+async fn index(_req : HttpRequest) -> Result<NamedFile> {
+    Ok(NamedFile::open("index.html")?)
 }
 
 
