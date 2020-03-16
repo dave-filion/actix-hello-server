@@ -1,11 +1,35 @@
 use actix_web::*;
 use listenfd::ListenFd;
 use std::sync::Mutex;
+use futures::future::{ready, Ready};
+use serde::Serialize;
 
 // Struct of app data shared in scope
 struct AppState {
     name: String,
     count: Mutex<i32>,  // requires mutex to share between threads
+}
+
+// Struct of an object we respond with
+#[derive(Serialize)]
+struct AppResponseObject {
+    name: &'static str,
+    success: bool,
+}
+
+// Need to implement Responder for our objct so a handler can return it
+impl Responder for AppResponseObject {
+    type Error = Error;
+    type Future = Ready<Result<HttpResponse, Error>>;
+
+    fn respond_to(self, req: &HttpRequest) -> Self::Future {
+        let body = serde_json::to_string(&self).unwrap();
+
+        // Create response and set content type
+        ready(Ok(HttpResponse::Ok()
+            .content_type("application/json")
+            .body(body)))
+    }
 }
 
 async fn index(data : web::Data<AppState>) -> impl Responder {
@@ -14,6 +38,13 @@ async fn index(data : web::Data<AppState>) -> impl Responder {
 
 async fn index2() -> impl Responder {
     HttpResponse::Ok().body("Yo again!")
+}
+
+async fn api_response() -> impl Responder {
+    AppResponseObject{
+        name: "JIMMY",
+        success: true,
+    }
 }
 
 async fn inc_counter(data : web::Data<AppState>) -> String {
@@ -26,10 +57,10 @@ async fn inc_counter(data : web::Data<AppState>) -> String {
 
 // this function could be located in different module
 // its scoped under /api
-fn scoped_config(cfg: &mut web::ServiceConfig) {
+pub fn scoped_config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/test")
-            .route(web::get().to(|| HttpResponse::Ok().body("test")))
+            .route(web::get().to(api_response))
             .route(web::head().to(|| HttpResponse::MethodNotAllowed())),
     );
 }
