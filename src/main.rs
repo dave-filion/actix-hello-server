@@ -52,6 +52,18 @@ async fn capture_event(evt: web::Json<Event>) -> impl Responder {
     format!("got event {}", new_event.id.unwrap())
 }
 
+#[derive(Serialize, Deserialize)]
+struct MyInfo {
+    user_id: u32,
+    name: String,
+}
+
+async fn extractor_test(
+    path_info : web::Path<MyInfo>, // data pulled from route/path
+) -> Result<String> {
+    Ok(format!("{} {}", path_info.user_id, path_info.name))
+}
+
 // Need to implement Responder for our objct so a handler can return it
 impl Responder for AppResponseObject {
     type Error = Error;
@@ -144,6 +156,7 @@ async fn main() -> std::io::Result<()> {
             .route("/inc", web::get().to(inc_counter))
             .route("/json", web::get().to(api_response2))
             .route("/event", web::post().to(capture_event))
+            .route("/extractor/{user_id}/{name}", web::get().to(extractor_test))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
