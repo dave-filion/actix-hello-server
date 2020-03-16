@@ -3,6 +3,8 @@ use listenfd::ListenFd;
 use std::sync::Mutex;
 use futures::future::{ready, Ready};
 use serde::{Serialize, Deserialize};
+use std::io;
+use failure::Fail;
 
 // Struct of app data shared in scope
 struct AppState {
@@ -106,9 +108,10 @@ impl Responder for AppResponseObject {
     }
 }
 
-async fn index(data : web::Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().body(format!("Yo {}", data.name))
+async fn index() -> String {
+    format!("HOME")
 }
+
 
 async fn index2() -> impl Responder {
     HttpResponse::Ok().body("Yo again!")
@@ -128,6 +131,21 @@ async fn inc_counter(data : web::Data<AppState>) -> String {
     format!("Count num: {}", counter) // response with count
     // counter drops and mutex releases lock here
 }
+
+// custom error example
+#[derive(Fail, Debug)]
+#[fail(display = "some error yo")]
+struct MyError {
+    name: &'static str,
+}
+
+// need to impl response error for custom struct, use default her
+impl error::ResponseError for MyError {}
+
+async fn error_test() -> Result<&'static str, MyError> {
+    Err(MyError{ name: "error_test"})
+}
+
 
 // this function could be located in different module
 // its scoped under /api
@@ -188,6 +206,7 @@ async fn main() -> std::io::Result<()> {
             .route("/query", web::get().to(query_test))
             .route("/json", web::post().to(json_test))
             .route("/form", web::post().to(form_test))
+            .route("/error", web::get().to(error_test))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
