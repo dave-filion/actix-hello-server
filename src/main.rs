@@ -74,6 +74,13 @@ async fn query_test(info: web::Query<Info2>) -> String {
     format!("Welcome: {}", info.name)
 }
 
+// JSON extractor test
+async fn json_test(info : web::Json<Info2>) -> String {
+    println!("Into json handler");
+    format!("Welcome: {}", info.name)
+}
+
+
 // Need to implement Responder for our objct so a handler can return it
 impl Responder for AppResponseObject {
     type Error = Error;
@@ -102,15 +109,6 @@ async fn api_response() -> impl Responder {
         name: "JIMMY",
         success: true,
     }
-}
-
-// handler using json convience method
-async fn api_response2() -> impl Responder {
-    web::Json(AppJsonResponse{
-        success: true,
-        user_id: 1234,
-        name: "Dave"
-    })
 }
 
 async fn inc_counter(data : web::Data<AppState>) -> String {
@@ -160,14 +158,25 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .configure(config)
             .app_data(app_state.clone()) // register the created data
+            // Configure info json extractor with max size
+            .app_data(web::Json::<Info2>::configure(|cfg| {
+                cfg.limit(4096).error_handler(|err, _req| {
+                    // create custom error response
+                    error::InternalError::from_response(
+                        err,
+                        HttpResponse::Conflict().finish(),
+
+                    ).into()
+                })
+            }))
             .route("/", web::get().to(index))
             .route("/api", web::get().to(api_response))
             .route("/again", web::get().to(index2))
             .route("/inc", web::get().to(inc_counter))
-            .route("/json", web::get().to(api_response2))
             .route("/event", web::post().to(capture_event))
             .route("/extractor/{user_id}/{name}", web::get().to(extractor_test))
             .route("/query", web::get().to(query_test))
+            .route("/json", web::post().to(json_test))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
