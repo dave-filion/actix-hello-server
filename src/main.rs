@@ -17,6 +17,14 @@ struct AppResponseObject {
     success: bool,
 }
 
+// Example struct to be serialized
+#[derive(Serialize)]
+struct AppJsonResponse {
+    success: bool,
+    user_id: u32,
+    name: &'static str,
+}
+
 // Need to implement Responder for our objct so a handler can return it
 impl Responder for AppResponseObject {
     type Error = Error;
@@ -45,6 +53,15 @@ async fn api_response() -> impl Responder {
         name: "JIMMY",
         success: true,
     }
+}
+
+// handler using json convience method
+async fn api_response2() -> impl Responder {
+    web::Json(AppJsonResponse{
+        success: true,
+        user_id: 1234,
+        name: "Dave"
+    })
 }
 
 async fn inc_counter(data : web::Data<AppState>) -> String {
@@ -98,6 +115,7 @@ async fn main() -> std::io::Result<()> {
             .route("/", web::get().to(index))
             .route("/again", web::get().to(index2))
             .route("/inc", web::get().to(inc_counter))
+            .route("/json", web::get().to(api_response2))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
