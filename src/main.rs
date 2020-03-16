@@ -8,8 +8,8 @@ struct AppState {
     count: Mutex<i32>,  // requires mutex to share between threads
 }
 
-async fn index() -> impl Responder {
-    HttpResponse::Ok().body("Yo")
+async fn index(data : web::Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().body(format!("Yo {}", data.name))
 }
 
 async fn index2() -> impl Responder {
