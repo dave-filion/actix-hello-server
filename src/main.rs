@@ -80,6 +80,16 @@ async fn json_test(info : web::Json<Info2>) -> String {
     format!("Welcome: {}", info.name)
 }
 
+#[derive(Deserialize)]
+struct FormData {
+    username: String,
+    number: u32,
+}
+
+// Form extractor test
+async fn form_test(info: web::Form<FormData>) -> Result<String> {
+    Ok(format!("Welcome {} -> {}!", info.username, info.number))
+}
 
 // Need to implement Responder for our objct so a handler can return it
 impl Responder for AppResponseObject {
@@ -177,6 +187,7 @@ async fn main() -> std::io::Result<()> {
             .route("/extractor/{user_id}/{name}", web::get().to(extractor_test))
             .route("/query", web::get().to(query_test))
             .route("/json", web::post().to(json_test))
+            .route("/form", web::post().to(form_test))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
