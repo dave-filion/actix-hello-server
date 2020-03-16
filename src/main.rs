@@ -1,5 +1,5 @@
 use actix_web::*;
-use actix_files::NamedFile;
+use actix_files as fs;
 
 use listenfd::ListenFd;
 use std::sync::Mutex;
@@ -111,10 +111,9 @@ impl Responder for AppResponseObject {
 }
 
 // Loads static file for index
-async fn index(_req : HttpRequest) -> Result<NamedFile> {
-    Ok(NamedFile::open("index.html")?)
+async fn index(_req : HttpRequest) -> Result<fs::NamedFile> {
+    Ok(fs::NamedFile::open("static/index.html")?)
 }
-
 
 async fn index2() -> impl Responder {
     HttpResponse::Ok().body("Yo again!")
@@ -200,6 +199,8 @@ async fn main() -> std::io::Result<()> {
                     ).into()
                 })
             }))
+            // static directory
+            .service(fs::Files::new("/static", "static").show_files_listing())
             .route("/", web::get().to(index))
             .route("/api", web::get().to(api_response))
             .route("/again", web::get().to(index2))
